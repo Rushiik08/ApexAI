@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                      String               @id @default(cuid())
+  name                    String?
+  email                   String               @unique
+  passwordHash            String
+  role                    String               @default("user")
+  plan                    String               @default("free") // "free", "pro", "enterprise"
+  monthlyGenerationsLimit Int                  @default(50)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  generations             Generation[]
+  usageRecords            UsageRecord[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Generation {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  contentType      String   // blog, article, social, marketing, product, email, summary, general
+  topic            String
+  prompt           String   @db.Text
+  generatedContent String   @db.Text
+  tone             String?  // professional, casual, authoritative, friendly, enthusiastic, formal
+  audience         String?  // general, developers, executives, marketers, students, customers
+  length           String?  // short, medium, long
+  language         String?  @default("en")
+  modelUsed        String?
+  isFavorite       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([contentType])
+  @@index([createdAt])
+  @@map("generations")
+}
+
+model UsageRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation  String   // "generate", "regenerate", "improve"
+  tokensUsed Int      @default(0)
+  modelUsed  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("usage_records")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
+}
