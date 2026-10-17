@@ -3,11 +3,12 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { sendPasswordResetEmail, getValidatedAppUrl } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "local";
-    const rl = checkRateLimit(`forgot-pw:${ip}`, 5, 60000);
+    const rl = await checkRateLimit(`forgot-pw:${ip}`, 5, 60000);
     if (!rl.success) {
       return NextResponse.json(
         { error: "Too many password reset requests. Please wait a moment." },
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const email = result.data.email.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // Always respond with success to prevent user enumeration attacks
+    // Always respond with success if user does not exist to prevent user enumeration attacks
     if (!user) {
       return NextResponse.json({
         message: "If an account exists with that email, reset instructions have been sent.",
@@ -51,20 +52,33 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/reset-password?token=${rawToken}`;
+    const appUrl = getValidatedAppUrl();
+    const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
 
-    // Log the link in development console for instant developer/tester verification
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`\n======================================================`);
-      console.log(`[PASSWORD RESET LINK for ${user.email}]:`);
-      console.log(resetUrl);
-      console.log(`======================================================\n`);
+    // Send password reset email via Resend
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+      });
+    } catch (emailError: unknown) {
+      // Invalidate the token if email sending failed so a ghost token doesn't persist
+      await prisma.passwordResetToken.deleteMany({
+        where: { tokenHash },
+      });
+
+      const err = emailError as Error;
+      console.error("Password reset email dispatch failure:", err.message);
+
+      return NextResponse.json(
+        { error: "Failed to send password reset email. Please try again later." },
+        { status: 500 }
+      );
     }
 
-    // Return message and also token in development for direct verification
+    // Return generic message without exposing reset tokens or URLs
     return NextResponse.json({
       message: "If an account exists with that email, reset instructions have been sent.",
-      devToken: process.env.NODE_ENV !== "production" ? rawToken : undefined,
     });
   } catch (error: unknown) {
     const err = error as Error;

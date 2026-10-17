@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -117,6 +118,7 @@ export async function GET() {
       activityData,
     });
   } catch (error: unknown) {
+    unstable_rethrow(error);
     const err = error as Error;
     console.error("Dashboard stats error:", err.message);
     return NextResponse.json({ error: "Failed to fetch dashboard statistics." }, { status: 500 });

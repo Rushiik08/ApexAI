@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limiting: max 10 generation requests per minute per user
-    const rl = checkRateLimit(`ai-gen:${session.id}`, 10, 60000);
+    const rl = await checkRateLimit(`ai-gen:${session.id}`, 10, 60000);
     if (!rl.success) {
       return NextResponse.json(
         { error: "Generation rate limit exceeded. Please wait a minute before sending another request." },

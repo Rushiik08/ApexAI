@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { getSession, setSessionCookie, createSessionToken } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -30,6 +31,7 @@ export async function GET() {
 
     return NextResponse.json({ user });
   } catch (error: unknown) {
+    unstable_rethrow(error);
     const err = error as Error;
     console.error("Profile GET error:", err.message);
     return NextResponse.json({ error: "Failed to fetch profile." }, { status: 500 });

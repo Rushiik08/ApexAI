@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -29,6 +30,7 @@ export async function GET() {
 
     return NextResponse.json({ user });
   } catch (error: unknown) {
+    unstable_rethrow(error);
     const err = error as Error;
     console.error("Session fetch error:", err.message);
     return NextResponse.json({ error: "Failed to get session" }, { status: 500 });

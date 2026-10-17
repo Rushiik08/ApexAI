@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-
-const SESSION_COOKIE_NAME = "saas_auth_session";
+import { getAuthSecret, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 const protectedRoutes = ["/dashboard", "/workspace", "/history", "/settings"];
 const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -14,14 +13,17 @@ export async function proxy(req: NextRequest) {
 
   if (token) {
     try {
-      const secret = new TextEncoder().encode(
-        process.env.AUTH_SECRET || "default_fallback_secret_must_be_at_least_32_chars_long!!"
-      );
-      const { payload } = await jwtVerify(token, secret);
+      const secret = getAuthSecret();
+      const { payload } = await jwtVerify(token, secret, {
+        algorithms: ["HS256"],
+      });
       if (payload.sub && payload.email) {
         isAuthenticated = true;
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes("AUTH_SECRET")) {
+        throw err;
+      }
       isAuthenticated = false;
     }
   }

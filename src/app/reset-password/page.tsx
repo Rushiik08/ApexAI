@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Eye, EyeOff, CheckCircle2, AlertTriangle } from "lucide-react";
@@ -17,9 +17,8 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    if (!token) setError("Invalid or missing reset token. Please request a new password reset link.");
-  }, [token]);
+  // Derived synchronously — no effect needed; token is available on first render.
+  const tokenMissing = !token;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +69,7 @@ function ResetPasswordForm() {
                 <p className="text-sm text-slate-400 mt-1">Choose a strong, unique password.</p>
               </div>
 
-              {!token && (
+              {tokenMissing && (
                 <div className="flex items-center gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
                   <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
                   <p className="text-xs text-red-400">Invalid or missing token. Please request a new password reset.</p>
@@ -98,7 +97,7 @@ function ResetPasswordForm() {
                   </div>
                 </div>
                 {error && <div role="alert" className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">{error}</div>}
-                <Button id="reset-submit-btn" type="submit" variant="primary" size="lg" isLoading={isLoading} disabled={!token} className="w-full font-semibold">
+                <Button id="reset-submit-btn" type="submit" variant="primary" size="lg" isLoading={isLoading} disabled={tokenMissing} className="w-full font-semibold">
                   {isLoading ? "Resetting..." : "Reset Password"}
                 </Button>
               </form>

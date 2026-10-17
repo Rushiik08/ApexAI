@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -69,29 +69,38 @@ export default function HistoryPage() {
   const [copied, setCopied] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const loadGenerations = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-        sortBy,
-        ...(search && { search }),
-        ...(contentTypeFilter && { contentType: contentTypeFilter }),
-        ...(favoriteOnly && { favorite: "true" }),
+  useEffect(() => {
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setIsLoading(true);
+    });
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: "10",
+      sortBy,
+      ...(search && { search }),
+      ...(contentTypeFilter && { contentType: contentTypeFilter }),
+      ...(favoriteOnly && { favorite: "true" }),
+    });
+    fetch(`/api/generations?${params}`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) return;
+        return res.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        setGenerations(data.generations || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotal(data.pagination?.total || 0);
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") console.error(err);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-      const res = await fetch(`/api/generations?${params}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setGenerations(data.generations || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-      setTotal(data.pagination?.total || 0);
-    } finally {
-      setIsLoading(false);
-    }
+    return () => controller.abort();
   }, [page, sortBy, search, contentTypeFilter, favoriteOnly]);
-
-  useEffect(() => { loadGenerations(); }, [loadGenerations]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value);

@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 export const SESSION_COOKIE_NAME = "saas_auth_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
@@ -12,9 +13,14 @@ export interface SessionUser {
   plan: string;
 }
 
-function getAuthSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET || "default_fallback_secret_must_be_at_least_32_chars_long!!";
-  return new TextEncoder().encode(secret);
+export function getAuthSecret(): Uint8Array {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.trim().length < 32) {
+    throw new Error(
+      "AUTH_SECRET environment variable is missing or too short. It must be at least 32 characters long."
+    );
+  }
+  return new TextEncoder().encode(secret.trim());
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
@@ -33,8 +39,8 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
 }
 
 export async function verifySessionToken(token: string): Promise<SessionUser | null> {
+  const secret = getAuthSecret();
   try {
-    const secret = getAuthSecret();
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ["HS256"],
     });
@@ -78,6 +84,7 @@ export async function clearSessionCookie(): Promise<void> {
 }
 
 export async function getSession(): Promise<SessionUser | null> {
+  await connection();
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;

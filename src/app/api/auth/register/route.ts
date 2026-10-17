@@ -8,7 +8,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "local";
-    const rl = checkRateLimit(`register:${ip}`, 10, 60000);
+    const rl = await checkRateLimit(`register:${ip}`, 10, 60000);
     if (!rl.success) {
       return NextResponse.json(
         { error: "Too many registration attempts. Please wait a moment." },
